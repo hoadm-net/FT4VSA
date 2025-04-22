@@ -189,12 +189,14 @@ if __name__ == '__main__':
         ])
     
     # Train the model
-    start_time = time.time()
+    if trainer.is_global_zero:
+        start_time = time.time()
+
     trainer.fit(model, train_loader, val_loader)
-    end_time = time.time()
-    print(f"Training time: {end_time - start_time} seconds")
+
+    if trainer.is_global_zero:
+        end_time = time.time()
+        print(f"Training time: {end_time - start_time} seconds")
 
     # Test the model
     results = trainer.test(model, test_loader)
-    print(f"Test accuracy: {results[0]['test_acc']}")
-    print(f"Test F1 score: {results[0]['test_f1']}")
