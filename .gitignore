@@ -307,4 +307,7 @@ pyrightconfig.json
 
 # End of https://www.toptal.com/developers/gitignore/api/python,pycharm,visualstudiocode
 
-.lightning_logs/
+
+# PyTorch Lightning logs
+# https://pytorch-lightning.readthedocs.io/en/latest/extensions/logging.html#logging
+lightning_logs/
