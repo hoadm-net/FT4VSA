@@ -52,7 +52,7 @@ def adapter_parse_args():
         "--learning_rate",
         type=float,
         default=3e-4,
-        help="Learning rate (default: 3e-4)"
+        help="Learning rate (default: 2e-5)"
     )
     parser.add_argument(
         "--seed", 
@@ -65,18 +65,31 @@ def adapter_parse_args():
 
 class Adapter4VSA(L.LightningModule):
     """Adapter-based Fine-tuning for Vietnamese Sentiment Analysis"""
-    def __init__(self, model_name, num_labels, adapter_size=64, lr=3e-4):
+    def __init__(self, model_name, num_labels, adapter_size=16, lr=2e-5):
         super().__init__()
         self.save_hyperparameters()
         
         # Load pre-trained model with adapter support
         self.model = AutoAdapterModel.from_pretrained(model_name)
+
+        hidden_size = self.model.config.hidden_size
+        reduction_factor = hidden_size // adapter_size
+
+        # Kiểm tra tính hợp lệ
+        if hidden_size % adapter_size != 0:
+            raise ValueError(
+                f"Hidden size {hidden_size} must be divisible by adapter size {adapter_size}."
+            )
+        if reduction_factor < 1:
+            raise ValueError(
+                f"Reduction factor {reduction_factor} must be at least 1."
+            )
         
         # Add adapter configuration
         config = SeqBnConfig(
             mh_adapter=True,
             output_adapter=True,
-            reduction_factor=16,
+            reduction_factor=reduction_factor,
             non_linearity="relu",
             original_ln_before=True
         )
@@ -156,7 +169,7 @@ class Adapter4VSA(L.LightningModule):
 
     def configure_optimizers(self):
         return torch.optim.AdamW(
-            self.model.parameters(),  # Chỉ tối ưu hóa các tham số adapter
+            self.model.parameters(), 
             lr=self.hparams.lr,
             weight_decay=0.01
         )
@@ -167,9 +180,7 @@ if __name__ == '__main__':
     # Model initialization
     model_map = {
         1: "vinai/phobert-base-v2",
-        2: "vinai/phobert-large",
-        3: "vinai/bartpho-word",
-        4: "VietAI/vit5-large"
+        2: "vinai/phobert-large"
     }
     tokenizer = AutoTokenizer.from_pretrained(model_map[args.model])
     
