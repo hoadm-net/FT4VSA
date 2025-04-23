@@ -27,37 +27,30 @@ def fft_parse_args():
         required=True,
         help="Select model: 1=PhoBERT-base-v2, 2=PhoBERT-large, 3=BARTpho, 4=ViT5"
     )
-    
     parser.add_argument(
         "--batch_size",
         type=int,
         default=32,
         help="Batch size (default: 32)"
     )
-    
-    # Number of epochs
     parser.add_argument(
         "--epochs",
         type=int,
         default=10,
         help="Number of training epochs (default: 10)"
     )
-    
     parser.add_argument(
         "--gpus",
         type=str,
         default="0",
         help="Comma-separated list of GPU indices to use, e.g., '0,1,2' (default: '0')"
     )
-    
-    # Learning rate
     parser.add_argument(
         "--learning_rate",
         type=float,
         default=2e-5,
         help="Learning rate (default: 2e-5)"
     )
-    
     parser.add_argument(
         "--seed",
         type=int,
@@ -137,9 +130,9 @@ if __name__ == '__main__':
     elif args.model == 2:
         model_name = "vinai/phobert-large"
     elif args.model == 3:
-        model_name = "facebook/bartpho"
+        model_name = "vinai/bartpho-word"
     elif args.model == 4:
-        model_name = "google/vit5-base"
+        model_name = "VietAI/vit5-large"
 
     tokenizer = AutoTokenizer.from_pretrained(model_name)
 
