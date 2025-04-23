@@ -1,6 +1,7 @@
 from os import path
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
+from underthesea import word_tokenize
 from mint.config import DATA_DIR
 
 
@@ -53,4 +54,23 @@ class VSFCDataset(Dataset):
             'attention_mask': encoding['attention_mask'].squeeze(0),
             'labels': torch.tensor(label, dtype=torch.long)
         }
-    
+
+
+class VSFCLoader:
+    def __init__(self, tokenizer, batch_size=32, max_length=128):
+        self.tokenizer = tokenizer
+        self.batch_size = batch_size
+        self.max_length = max_length
+
+    def load_data(self, subset='train'):
+        texts, labels = load_uit_vsfc(subset)
+        texts = [word_tokenize(text, format='text') for text in texts]
+        dataset = VSFCDataset(texts, labels, self.tokenizer, self.max_length)
+
+        return DataLoader(
+            dataset, 
+            batch_size=self.batch_size, 
+            shuffle=(subset == 'train'), 
+            num_workers=4, 
+            pin_memory=True
+        )

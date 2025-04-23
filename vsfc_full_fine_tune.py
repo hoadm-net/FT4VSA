@@ -1,26 +1,25 @@
 import time
+import argparse
 import torch
-from torch.utils.data import DataLoader
 import lightning as L
 from lightning.pytorch.callbacks import EarlyStopping
-from lightning.pytorch.callbacks import DeviceStatsMonitor
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from torchmetrics import Accuracy, F1Score
-from underthesea import word_tokenize
-import argparse
 import GPUtil
-from mint.uit_vsfc_helpers import load_uit_vsfc, VSFCDataset
+from mint.uit_vsfc_helpers import VSFCLoader
 
 
 torch.set_float32_matmul_precision('high')
 
 
 def fft_parse_args():
+    """
+        Parse command line arguments for full fine-tuning of Vietnamese sentiment analysis models.
+    """
     parser = argparse.ArgumentParser(
         description="Full Fine-tuning for Vietnamese Sentiment Analysis"
     )
     
-    # Model selection
     parser.add_argument(
         "--model",
         type=int,
@@ -29,7 +28,6 @@ def fft_parse_args():
         help="Select model: 1=PhoBERT-base-v2, 2=PhoBERT-large, 3=BARTpho, 4=ViT5"
     )
     
-    # Batch size
     parser.add_argument(
         "--batch_size",
         type=int,
@@ -45,7 +43,6 @@ def fft_parse_args():
         help="Number of training epochs (default: 10)"
     )
     
-    # GPU indices
     parser.add_argument(
         "--gpus",
         type=str,
@@ -61,7 +58,6 @@ def fft_parse_args():
         help="Learning rate (default: 2e-5)"
     )
     
-    # Optional: Seed for reproducibility
     parser.add_argument(
         "--seed",
         type=int,
@@ -69,18 +65,13 @@ def fft_parse_args():
         help="Random seed (default: 42)"
     )
     
-    # Optional: Output directory
-    parser.add_argument(
-        "--output_dir",
-        type=str,
-        default="outputs",
-        help="Directory to save checkpoints and logs (default: 'outputs')"
-    )
-    
     return parser.parse_args()
 
 
-class FFT4SentimentAnalysis(L.LightningModule):
+class FFT4VSA(L.LightningModule):
+    """
+        Full Fine-tuning for Vietnamese Sentiment Analysis
+    """
     def __init__(self, model_name, num_labels, lr=2e-5):
         super().__init__()
         self.save_hyperparameters()
@@ -139,14 +130,6 @@ class FFT4SentimentAnalysis(L.LightningModule):
 
 if __name__ == '__main__':
     args = fft_parse_args()
-    
-    train_texts, train_labels = load_uit_vsfc('train')
-    val_texts, val_labels = load_uit_vsfc('val')
-    test_texts, test_labels = load_uit_vsfc('test')
-
-    train_texts = [word_tokenize(text, format='text') for text in train_texts]
-    val_texts = [word_tokenize(text, format='text') for text in val_texts]
-    test_texts = [word_tokenize(text, format='text') for text in test_texts]
 
     # Load the tokenizer
     if args.model == 1:
@@ -165,16 +148,14 @@ if __name__ == '__main__':
     torch.cuda.manual_seed_all(args.seed)
 
     # Load data
-    train_dataset = VSFCDataset(train_texts, train_labels, tokenizer)
-    val_dataset = VSFCDataset(val_texts, val_labels, tokenizer)
-    test_dataset = VSFCDataset(test_texts, test_labels, tokenizer)
+    loader = VSFCLoader(tokenizer, batch_size=args.batch_size)
 
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
-    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, num_workers=4)
-    test_loader = DataLoader(test_dataset, batch_size=args.batch_size, num_workers=4)
+    train_loader = loader.load_data(subset='train')
+    val_loader = loader.load_data(subset='val')
+    test_loader = loader.load_data(subset='test')
 
     # Initialize the model
-    model = FFT4SentimentAnalysis(model_name=model_name, num_labels=3, lr=args.learning_rate)
+    model = FFT4VSA(model_name=model_name, num_labels=3, lr=args.learning_rate)
     print('\n\n')
 
     # Print resource usage
