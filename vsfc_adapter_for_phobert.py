@@ -20,9 +20,9 @@ def adapter_parse_args():
     parser.add_argument(
         "--model", 
         type=int,
-        choices=[1, 2, 3, 4],
+        choices=[1, 2],
         required=True,
-        help="Model selection: 1=PhoBERT-base-v2, 2=PhoBERT-large, 3=BARTpho, 4=ViT5"
+        help="Model selection: 1=PhoBERT-base-v2, 2=PhoBERT-large"
     )
     parser.add_argument(
         "--adapter_size",
