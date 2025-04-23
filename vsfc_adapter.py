@@ -191,6 +191,7 @@ if __name__ == '__main__':
     GPUs = [int(gpu) for gpu in args.gpus.split(',')]
 
     trainer = L.Trainer(
+        strategy="ddp_find_unused_parameters_true",
         max_epochs=args.epochs,
         accelerator='gpu',
         devices=GPUs,
