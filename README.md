@@ -25,3 +25,14 @@ The project utilizes the following Vietnamese pre-trained language models:
 2. LoRA (Low-Rank Adaptation)
 3. QLoRA
 4. Adapter
+
+## 6. Install dependencies
+The following libraries need to be installed:
+* [Pytorch](https://pytorch.org/get-started/locally/)
+
+```
+pip install transformers datasets adapters peft bitsandbytes
+pip install lightning torchmetrics
+pip install underthesea
+pip install gputil
+```
