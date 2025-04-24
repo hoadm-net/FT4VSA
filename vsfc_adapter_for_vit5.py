@@ -8,13 +8,11 @@ from transformers import AutoTokenizer
 from adapters import AutoAdapterModel, SeqBnConfig
 from torchmetrics import Accuracy, F1Score
 from mint.uit_vsfc_helpers import VSFCLoader
-import GPUtil
-
 
 torch.set_float32_matmul_precision('high')
 
 
-def bartpho_adapter_parse_args():
+def vit5_adapter_parse_args():
     """Parse command line arguments for Adapter fine-tuning"""
     parser = argparse.ArgumentParser(
         description="Adapter Fine-tuning for Vietnamese Sentiment Analysis"
@@ -58,16 +56,17 @@ def bartpho_adapter_parse_args():
     return parser.parse_args()
 
 
-class BARTphoAdapter(L.LightningModule):
-    """Adapter-based Fine-tuning cho BARTpho"""
+class ViT5Adapter(L.LightningModule):
+    """Adapter-based Fine-tuning cho ViT5"""
     def __init__(self, num_labels=3, adapter_size=64, lr=2e-5):
         super().__init__()
         self.save_hyperparameters()
         
+        # 1. Tải ViT5 với adapter support
         self.model = AutoAdapterModel.from_pretrained(
-            "vinai/bartpho-word",
+            "VietAI/vit5-large"
         )
-
+        
         # Set adapter size and reduction factor
         hidden_size = self.model.config.hidden_size
         reduction_factor = hidden_size // adapter_size
@@ -81,8 +80,8 @@ class BARTphoAdapter(L.LightningModule):
             raise ValueError(
                 f"Reduction factor {reduction_factor} must be at least 1."
             )
-        
-        # 2. Configure adapter for BARTpho
+
+        # 2. Setting up the adapter configuration
         adapter_config = SeqBnConfig(
             mh_adapter=True,
             output_adapter=True,
@@ -97,7 +96,7 @@ class BARTphoAdapter(L.LightningModule):
         
         # 3. Classification head uses the last hidden state of the encoder
         self.classifier = torch.nn.Linear(
-            self.model.config.d_model,  # hidden_size -> d_model
+            self.model.config.d_model,
             num_labels
         )
         
@@ -108,12 +107,11 @@ class BARTphoAdapter(L.LightningModule):
         self.test_acc = Accuracy(task="multiclass", num_classes=num_labels)
         self.test_f1 = F1Score(task="multiclass", num_classes=num_labels, average='macro')
 
-
     def forward(self, input_ids, attention_mask):
         outputs = self.model(
             input_ids=input_ids,
             attention_mask=attention_mask,
-            decoder_input_ids=torch.zeros_like(input_ids),  # Giả lập decoder input
+            decoder_input_ids=torch.zeros_like(input_ids), # Simulate decoder input
             output_hidden_states=True
         )
         encoder_hidden = outputs.encoder_hidden_states[-1]
@@ -125,14 +123,8 @@ class BARTphoAdapter(L.LightningModule):
         loss = torch.nn.functional.cross_entropy(logits, batch['labels'])
         
         self.train_acc(logits.argmax(dim=1), batch['labels'])
-
         self.log('train_loss', loss)
         self.log('train_acc', self.train_acc, prog_bar=True)
-        
-        if torch.cuda.is_available():
-            for gpu in GPUtil.getGPUs():
-                self.log(f"GPU {gpu.id}", gpu.memoryUsed)
-
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -148,12 +140,14 @@ class BARTphoAdapter(L.LightningModule):
     
     def test_step(self, batch, batch_idx):
         logits = self(batch['input_ids'], batch['attention_mask'])
-
+        loss = torch.nn.functional.cross_entropy(logits, batch['labels'])
+        
         self.test_acc(logits.argmax(dim=1), batch['labels'])
         self.test_f1(logits.argmax(dim=1), batch['labels'])
+        self.log('test_loss', loss, prog_bar=True)
         self.log('test_acc', self.test_acc, prog_bar=True)
         self.log('test_f1', self.test_f1, prog_bar=True)
-        return {'test_acc': self.test_acc, 'test_f1': self.test_f1}
+        return loss
 
     def configure_optimizers(self):
         return torch.optim.AdamW(
@@ -162,37 +156,35 @@ class BARTphoAdapter(L.LightningModule):
             weight_decay=0.01
         )
     
-if __name__ == '__main__':
-    args = bartpho_adapter_parse_args()
+
+if __name__ == "__main__":
+    args = vit5_adapter_parse_args()
     
     tokenizer = AutoTokenizer.from_pretrained(
-        "vinai/bartpho-word",
+        "VietAI/vit5-large",
         use_fast=False,
-        model_max_length=256,
+        model_max_length=256
     )
+
+    # Set random seed for reproducibility
+    torch.manual_seed(args.seed)
+    torch.cuda.manual_seed_all(args.seed)
     
-    # Loading data
+    # Load data
     loader = VSFCLoader(tokenizer, batch_size=args.batch_size)
     train_loader = loader.load_data(subset='train')
     val_loader = loader.load_data(subset='val')
     test_loader = loader.load_data(subset='test')
-
-
-    # Initialize model
-    model = BARTphoAdapter(lr=args.learning_rate)
     
-    # Set random seed for reproducibility
-    torch.manual_seed(args.seed)
-    torch.cuda.manual_seed_all(args.seed)
-
-    # GPU configuration
+    # Initialize model
+    model = ViT5Adapter(num_labels=3, adapter_size=args.adapter_size, lr=args.learning_rate)
+    
+    # Set up training
     GPUs = [int(gpu) for gpu in args.gpus.split(',')]
-
-    # Setup for distributed training
     trainer = L.Trainer(
         strategy=DDPStrategy(find_unused_parameters=True),
         max_epochs=args.epochs,
-        accelerator='gpu', 
+        accelerator='gpu',
         devices=GPUs,
         callbacks=[EarlyStopping(monitor='val_loss', patience=3)],
         enable_progress_bar=True,
