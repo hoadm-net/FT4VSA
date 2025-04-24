@@ -29,10 +29,20 @@ The project utilizes the following Vietnamese pre-trained language models:
 ## 6. Install dependencies
 The following libraries need to be installed:
 * [Pytorch](https://pytorch.org/get-started/locally/)
+* [Jupyter Notebook](https://jupyter.org/install)
 
 ```
+pip install pandas
 pip install transformers datasets adapters peft bitsandbytes
 pip install lightning torchmetrics
 pip install underthesea
 pip install gputil
+pip install matplotlib seaborn
+```
+
+## 7. Experiment
+All scripts include an argument parser, so you can run any Python script with the ```--help``` parameter to see usage instructions. See the example below.
+
+```
+python vsfc_full_fine_tune.py --help
 ```
