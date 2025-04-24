@@ -143,7 +143,7 @@ if __name__ == '__main__':
     # Load data
     loader = VSFCLoader(tokenizer, batch_size=args.batch_size)
 
-    train_loader = loader.load_data(subset='train', shuffle=True)
+    train_loader = loader.load_data(subset='train')
     val_loader = loader.load_data(subset='val')
     test_loader = loader.load_data(subset='test')
 
