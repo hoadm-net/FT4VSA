@@ -78,7 +78,7 @@ class Adapter4VSA(L.LightningModule):
         hidden_size = self.model.config.hidden_size
         reduction_factor = hidden_size // adapter_size
 
-        # Kiểm tra tính hợp lệ
+        # Check if hidden size is divisible by adapter size
         if hidden_size % adapter_size != 0:
             raise ValueError(
                 f"Hidden size {hidden_size} must be divisible by adapter size {adapter_size}."
