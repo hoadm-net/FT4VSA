@@ -51,7 +51,7 @@ def adapter_parse_args():
     parser.add_argument(
         "--learning_rate",
         type=float,
-        default=3e-4,
+        default=2e-5,
         help="Learning rate (default: 2e-5)"
     )
     parser.add_argument(
@@ -64,7 +64,9 @@ def adapter_parse_args():
 
 
 class Adapter4VSA(L.LightningModule):
-    """Adapter-based Fine-tuning for Vietnamese Sentiment Analysis"""
+    """
+       Adapter fine-tuning BERT model for Vietnamese Sentiment Analysis (VSA)
+    """
     def __init__(self, model_name, num_labels, adapter_size=16, lr=2e-5):
         super().__init__()
         self.save_hyperparameters()
@@ -72,6 +74,7 @@ class Adapter4VSA(L.LightningModule):
         # Load pre-trained model with adapter support
         self.model = AutoAdapterModel.from_pretrained(model_name)
 
+        # Set adapter size and reduction factor
         hidden_size = self.model.config.hidden_size
         reduction_factor = hidden_size // adapter_size
 
@@ -184,6 +187,10 @@ if __name__ == '__main__':
     }
     tokenizer = AutoTokenizer.from_pretrained(model_map[args.model])
     
+    # Set random seed for reproducibility
+    torch.manual_seed(args.seed)
+    torch.cuda.manual_seed_all(args.seed)
+
     # Data loading
     loader = VSFCLoader(tokenizer, batch_size=args.batch_size)
     train_loader = loader.load_data(subset='train')
