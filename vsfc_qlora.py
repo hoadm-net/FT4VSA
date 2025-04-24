@@ -70,8 +70,8 @@ def lora_parse_args():
     parser.add_argument(
         "--learning_rate",
         type=float,
-        default=3e-4,
-        help="Learning rate (default: 3e-4)"
+        default=2e-5,
+        help="Learning rate (default: 2e-5)"
     )
     parser.add_argument(
         "--seed",
@@ -81,6 +81,7 @@ def lora_parse_args():
     )
     return parser.parse_args()
 
+
 def get_4bit_config():
     return BitsAndBytesConfig(
         load_in_4bit=True,
@@ -89,6 +90,7 @@ def get_4bit_config():
         bnb_4bit_use_double_quant=True,
         bnb_4bit_quant_storage=torch.bfloat16
     )
+
 
 def get_lora_config(model_name: str):
     target_modules_map = {
@@ -114,17 +116,15 @@ class QLoRA4VSA(L.LightningModule):
         super().__init__()
         self.save_hyperparameters()
         
-        # 1. Tải model với quantization 4-bit
+        # 1. Download model with 4-bit quantization
         self.model = AutoModelForSequenceClassification.from_pretrained(
             model_name,
             num_labels=num_labels,
             quantization_config=get_4bit_config(),
         )
         
-        # 2. Chuẩn bị model cho QLoRA
+        # 2. Convert to LoRA model
         self.model = prepare_model_for_kbit_training(self.model)
-        
-        # 3. Thêm LoRA adapters
         self.model = get_peft_model(self.model, get_lora_config(model_name))
         
         # Metrics
@@ -201,7 +201,11 @@ if __name__ == "__main__":
         4: "VietAI/vit5-large"
     }
     
-    # Tải tokenizer và dữ liệu
+    # Set random seed
+    torch.manual_seed(args.seed)
+    torch.cuda.manual_seed_all(args.seed)
+
+    # Donwload tokenizer and data
     tokenizer = AutoTokenizer.from_pretrained(model_map[args.model])
     loader = VSFCLoader(tokenizer, batch_size=args.batch_size)
     train_loader = loader.load_data(subset='train')
@@ -209,16 +213,17 @@ if __name__ == "__main__":
     test_loader = loader.load_data(subset='test')
     
 
-    # Khởi tạo model
+    # Setup model
     model = QLoRA4VSA(
         model_name=model_map[args.model],
         num_labels=3,
         lr=args.learning_rate
     )
     
-    # Huấn luyện
+    # Setup GPUs
     GPUs = [int(gpu) for gpu in args.gpus.split(',')]
 
+    # Setup trainer
     trainer = L.Trainer(
         max_epochs=args.epochs,
         accelerator="gpu",
@@ -227,7 +232,7 @@ if __name__ == "__main__":
         precision="bf16-mixed"
     )
     
-        # Training
+    # Training
     if trainer.is_global_zero:
         start_time = time.time()
 
