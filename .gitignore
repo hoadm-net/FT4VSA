@@ -311,3 +311,11 @@ pyrightconfig.json
 # PyTorch Lightning logs
 # https://pytorch-lightning.readthedocs.io/en/latest/extensions/logging.html#logging
 lightning_logs/
+
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.DS_Store
+.ipynb_checkpoints/
